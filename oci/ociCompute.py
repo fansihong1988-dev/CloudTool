@@ -11,7 +11,6 @@ if not os.path.exists(cache):
     os.mkdir(cache)
 
 def launchInstance(corpid, corpsecret):
-    os.environ['OCI_CLI_PROFILE'] = os.path.join(conf, 'oci.conf')
     config = oci.config.from_file()
     auth = oci.Signer(
     tenancy=config['tenancy'],
@@ -49,7 +48,8 @@ def launchInstance(corpid, corpsecret):
                 agentid=1000003,
                 textContent=f"🎉🎉🎉🎉OCI实例注册成功\n\n🖥️实例信息: {response.text}\n🔑令牌信息: {validAccesssToken}\n⏰令牌间隔: {difference_time}"
             )
-            time.sleep(10)
+            break
+        time.sleep(10)
 
 if sys.argv[1] == "--new-instance":
     launchInstance(corpid=sys.argv[2], corpsecret=sys.argv[3])
