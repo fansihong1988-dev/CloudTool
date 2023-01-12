@@ -1,59 +1,66 @@
-import os, sys, time
+import os, sys, time, logging
 sys.path.append(os.environ['CLOUD_SRC'])
 import oci, json, requests
 from pushMessage.weChat import Message
 
+logger = logging.getLogger(name='Default')
+logger.setLevel(level=logging.DEBUG)
+logger_Console_Handler = logging.StreamHandler()
+logger_Console_Handler.setLevel(level=logging.DEBUG)
+logger_Formatter = logging.Formatter("[%(asctime)s] %(levelname)s %(name)s %(message)s")
+logger_Console_Handler.setFormatter(logger_Formatter)
+logger.addHandler(logger_Console_Handler)
+
 conf = os.path.join(os.path.split(sys.argv[0])[0], 'conf')
 if not os.path.exists(conf):
+    logger.warning('%s will be created' %conf)
     os.mkdir(conf)
+
 cache = os.path.join(os.path.split(sys.argv[0])[0], 'cache')
 if not os.path.exists(cache):
+    logger.warning('%s Will be created' %cache)
     os.mkdir(cache)
 
-def launchInstance(corpid, corpsecret):
-    config = oci.config.from_file()
-    auth = oci.Signer(
-    tenancy=config['tenancy'],
-    user=config['user'],
-    fingerprint=config['fingerprint'],
-    private_key_file_location=config['key_file']
-    )
-    endpoint = "https://iaas.ap-singapore-1.oraclecloud.com/20160918/instances/"
-    launchInstanceConf = os.path.join(conf, 'launchInstance.json')
-    fd1 = open(file=launchInstanceConf, mode='r+', encoding='utf-8')
-    fd1Content = fd1.read()
-    fd1.close()
-    response = requests.post(url=endpoint, data=fd1Content, auth=auth)
+def notice(corpid, corpsecret):
     WeiXin = Message(corpid=corpid, corpsecret=corpsecret)
     access_token_file = os.path.join(cache, 'access.token')
-    while True:
-        if response.status_code == 200:
-            if not os.path.exists(access_token_file):
-                accessTokenFP = open(file=access_token_file, mode='w+', encoding='utf-8')
-                accessTokenFP.write(json.dumps(WeiXin.getAccessToken))
-                accessTokenFP.close()
-            access_token_previous_time = time.mktime(time.localtime(os.stat(access_token_file).st_mtime))
-            current_local_time = time.mktime(time.localtime())
-            difference_time = current_local_time - access_token_previous_time
-            if difference_time >= 7200:
-                accessTokenRewriteFP = open(file=access_token_file, mode='w+', encoding='utf-8')
-                accessTokenRewriteFP.write(json.dumps(WeiXin.getAccessToken))
-                accessTokenRewriteFP.close()
-            accessTokenRead = open(file=access_token_file, mode='r+', encoding='utf-8')
-            validAccesssToken = json.loads(accessTokenRead.read())['access_token']
-            accessTokenRead.close()
-            WeiXin.sendTextMessage(
-                access_token=validAccesssToken,
-                target='FanSiHong',
-                agentid=1000003,
-                textContent=f"🎉🎉🎉🎉OCI实例注册成功\n\n🖥️实例信息: {response.text}\n🔑令牌信息: {validAccesssToken}\n⏰令牌间隔: {difference_time}"
-            )
-            break
-        time.sleep(10)
+    if os.path.exists(access_token_file):
+        fp = open(file=access_token_file, mode='r+', encoding='utf-8')
+        fp_content = fp.read()
+        fp.close()
+        logger.info('Access token read: %s' %fp_content)
+    else:
+        fp = open(file=access_token_file, mode='w+', encoding='utf-8')
+        fp_content = fp.write(json.dumps(WeiXin.getAccessToken))
+        fp.close()
+        logger.info('Access token write: %s' %fp_content)
+    
+   
 
-if sys.argv[1] == "--new-instance":
-    launchInstance(corpid=sys.argv[2], corpsecret=sys.argv[3])
-else:
-    print(
-        "--new-instance: 创建新实例, 需要传入corpid, 和corpsecret"
-    )
+def new_launch_instance():
+    if os.path.exists(path='%s/.oci/config' %os.environ['HOME']):
+        logger.info('Read oci configure from %s/.oci/config' %os.environ['HOME'])
+        config = oci.config.from_file()
+        logger.info('Create request authorized configure from config')
+        auth = oci.Signer(
+            tenancy=config['tenancy'],
+            user=config['user'],
+            fingerprint=config['fingerprint'],
+            private_key_file_location=config['key_file']
+        )
+        logger.info('authorized tenancy: %s' %config['tenancy'])
+        logger.info('authorized user: %s' %config['user'])
+        logger.info('authorized fingerprint: %s' %config['fingerprint'])
+        logger.info('authorized private_key_file_location: %s' %config['key_file'])
+        endpoint = "https://iaas.ap-singapore-1.oraclecloud.com/20160918/instances/"
+        inst_configure_file = os.path.join(conf, 'inst_configure.json')
+        if os.path.exists(inst_configure_file):
+            fp = open(file=inst_configure_file, mode='r+', encoding='utf-8')
+            fp_content = fp.read()
+            fp.close()
+            #logger.info('New launch instance configure:\n%s' %fp_content)
+            response = requests.post(url=endpoint, data=fp_content, auth=auth)
+            logger.info('Request return information: %s' %response.json())
+            return response
+        else:
+            logger.error('Read launch new instance configure failed')
