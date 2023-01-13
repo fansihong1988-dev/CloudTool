@@ -99,6 +99,8 @@ def usage():
          [agentid: 企业微信应用ID]"
          )
 
+notice(corpid=sys.argv[2], corpsecret=sys.argv[3], toWho=sys.argv[4], agentid=sys.argv[5], textContent=logger.info('🏃‍♀️🏃‍♀️抢实例脚本开始启动啦'))
+
 if len(sys.argv) < 2:
     usage()
 elif len(sys.argv) == 6 and sys.argv[1] == '--new-inst':
